@@ -1,0 +1,11 @@
+darray.h:44:21:Tm_DArray_remove	24	static
+darray.c:4:12:Tm_DArray_create	40	static
+darray.c:25:6:Tm_DArray_clear	24	static
+darray.c:37:19:Tm_DArray_resize	40	static
+darray.c:54:5:Tm_DArray_expand	40	static
+darray.c:68:5:Tm_DArray_contract	24	static
+darray.c:75:6:Tm_DArray_destroy	16	static
+darray.c:83:6:Tm_DArray_clear_destroy	16	static
+darray.c:89:5:Tm_DArray_push	16	static
+darray.c:101:7:Tm_DArray_pop	40	static
+darray.c:117:6:Tm_DArray_set	40	static

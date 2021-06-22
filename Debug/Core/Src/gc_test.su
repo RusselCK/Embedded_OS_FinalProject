@@ -1,0 +1,5 @@
+gc_test.c:7:1:test_rootset	32	static
+gc_test.c:19:1:test_scan_pointers	40	static
+gc_test.c:29:1:test_release	16	static
+gc_test.c:35:1:State_new	16	static
+gc_test.c:44:1:new_heap	40	static

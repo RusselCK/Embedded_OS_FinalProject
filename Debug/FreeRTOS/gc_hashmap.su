@@ -1,0 +1,7 @@
+darray.h:36:21:Tm_DArray_get	32	static
+gc_hashmap.c:21:28:Hashmap_node_create	48	static
+gc_hashmap.c:36:26:Hashmap_find_bucket	56	static
+gc_hashmap.c:58:5:gc_Hashmap_set	64	static
+gc_hashmap.c:82:19:Hashmap_get_node	32	static
+gc_hashmap.c:94:7:gc_Hashmap_get	56	static
+gc_hashmap.c:115:6:gc_Hashmap_delete	48	static

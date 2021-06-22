@@ -1,0 +1,10 @@
+object.c:13:1:Object_new	24	static
+object.c:23:1:Object_print	16	static
+object.c:29:1:Number_new	32	static
+object.c:38:1:String_new	24	static
+object.c:46:1:Vector_new	24	static
+object.c:56:1:Map_new	24	static
+object.c:65:1:Object_relate	16	static
+object.c:72:1:Object_make_root	16	static
+object.c:77:6:Object_unrelate	32	static
+object.c:95:1:Object_destroy	16	static
