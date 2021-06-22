@@ -12,7 +12,7 @@
 
 typedef struct state_s {
   TmStateHeader gc;
-  Tm_DArray *registers;		// rootset
+  Tm_DArray *rootset;
 } State;
 
 //State* State_new();

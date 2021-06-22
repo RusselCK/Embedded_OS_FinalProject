@@ -51,7 +51,8 @@ insert_in(TmHeap *heap, TmCell* self, TmCell* him) {
   if(him == FREE)   FREE = self;
 }
 
-static inline void
+//static inline void
+void
 make_ecru(TmHeap *heap, TmCell *self)
 {
   if(self == BOTTOM) {
@@ -64,7 +65,8 @@ make_ecru(TmHeap *heap, TmCell *self)
   self->ecru = 1;
 }
 
-static inline void
+//static inline void
+void
 make_grey(TmHeap *heap, TmCell *self)
 {
   insert_in(heap, self, TOP);
@@ -269,6 +271,7 @@ TmChunk
 TmChunk_new(int size)
 {
   TmCell *memory = calloc(size, sizeof(TmCell));
+  check_mem(memory);
   TmCell *ptr    = memory;
 
   for(int i=0; i < size; i++) {
@@ -290,6 +293,10 @@ TmChunk_new(int size)
 
   TmChunk chunk = { .head = memory, .tail = tail };
   return chunk;
+
+error:
+  exit(EXIT_FAILURE);
+
 }
 
 static inline void
@@ -321,7 +328,8 @@ Tm_flip(TmHeap *heap)
 {
   debug("[GC] Flip");
   // Scan all the grey cells before flipping.
-  while(SCAN != TOP) Tm_scan(heap);
+  while(SCAN != TOP)
+	  Tm_scan(heap);
 
   TmCell *ptr = NULL;
 
@@ -348,7 +356,7 @@ Tm_flip(TmHeap *heap)
   int count = Tm_DArray_count(rootset);
   debug("[GC] Adding rootset (%i)", count);
   for(int i=0; i < count; i++) {
-    TmObjectHeader *o = (TmObjectHeader*)(Tm_DArray_at(rootset, i));
+    TmObjectHeader *o = (TmObjectHeader*)(rootset->contents[i]);
     TmCell *cell = o->cell;
     make_grey(heap, cell);
   }

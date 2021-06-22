@@ -12,11 +12,19 @@
 Object*
 Object_new(TmHeap *heap, ValueType type)
 {
-  Object *obj = (Object*)Tm_allocate(heap);
-  obj->type = type;
-  obj->parent = NULL;
-  obj->children = Tm_DArray_create(sizeof(Object*), 10);
-  return obj;
+  Object *obj = NULL;
+  if (xSemaphoreTake( xSemaphore, ( TickType_t ) 10 ) == pdTRUE ) {
+	  obj = (Object*)Tm_allocate(heap);
+	  xSemaphoreGive( xSemaphore );
+
+	  obj->type = type;
+	  obj->parent = NULL;
+	  obj->children = NULL;
+	  return obj;
+  }
+  check(obj, "Error can't create obj.");
+error:
+  return NULL;
 }
 
 void
@@ -48,6 +56,7 @@ Vector_new(TmHeap *heap, int vector_size)
   Object* obj = Object_new(heap, VectorType);
   Tm_DArray *array = Tm_DArray_create(sizeof(Object*), vector_size);
   obj->data.as_data = array;
+  obj->children = array;
 
   return obj;
 }
@@ -64,6 +73,9 @@ Map_new(TmHeap *heap)
 void
 Object_relate(Object* parent, Object* child)
 {
+  if (!parent->children)
+	  parent->children = Tm_DArray_create(sizeof(Object*), 10);
+
   Tm_DArray_push(parent->children, child);
   child->parent = parent;
 }
@@ -71,22 +83,26 @@ Object_relate(Object* parent, Object* child)
 void
 Object_make_root(Object *self, State *state)
 {
-  Tm_DArray_push(state->registers, self);
+  Tm_DArray_push(state->rootset, self);
 }
 
 void Object_unrelate(Object* parent, Object* child) {
 
-	int children_i;
+	if (child->parent != parent) return;
+
+	int child_i = -1;
 	for (int i= 0; i < Tm_DArray_end(parent->children); ++i) {
-		if (Tm_DArray_at(parent->children, i) == child) {
-			children_i = i;
-			--Tm_DArray_end(parent->children);
+		if ((parent->children->contents[i]) == child) {
+			child_i = i;
+			--(parent->children->end);
 			break;
 		}
 	}
 
-	for (int i = children_i; i < Tm_DArray_end(parent->children); ++i)
-		Tm_DArray_at(parent->children, i) = Tm_DArray_at(parent->children, i+1);
+	if (child_i == -1) return;
+
+	for (int i = child_i; i < Tm_DArray_end(parent->children); ++i)
+		parent->children->contents[i] = parent->children->contents[i+1];
 
 	child->parent = NULL;
 }
@@ -97,6 +113,12 @@ Object_destroy(Object *self)
   if (self->parent)
 	Object_unrelate(self->parent, self);
 
+  if (self->children) {
+	  for (int i = 0; i < Tm_DArray_end(self->children); ++i) {
+		  Object *child = self->children->contents[i];
+		  child->parent = NULL;
+	  }
+  }
   Tm_DArray_destroy(self->children);
 
   if (self && self->type == StringType) {
@@ -104,4 +126,22 @@ Object_destroy(Object *self)
 		  free(self->data.as_str);
   }
   free(self);
+}
+
+void
+Object_delete_root(Object *self, State *state) {
+
+	int root_i = -1;
+	for(int i = 0; i < Tm_DArray_end(state->rootset); ++i) {
+		if ((state->rootset->contents[i]) == self) {
+			root_i = i;
+			--(state->rootset->end);
+			break;
+		}
+	}
+
+	if (root_i == -1) return;
+
+	for (int i = root_i; i < Tm_DArray_end(state->rootset); ++i)
+		state->rootset->contents[i] = state->rootset->contents[i+1];
 }

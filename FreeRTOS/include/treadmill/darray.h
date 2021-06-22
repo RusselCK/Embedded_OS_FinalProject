@@ -22,14 +22,14 @@ int Tm_DArray_push(Tm_DArray *array, void *el);
 void *Tm_DArray_pop(Tm_DArray *array);
 void Tm_DArray_clear_destroy(Tm_DArray *array);
 
-#define Tm_DArray_last(A) ((A)->contents[(A)->end - 1])
-#define Tm_DArray_first(A) ((A)->contents[0])
-#define Tm_DArray_at(A, I) ((A)->contents[(I)])
-#define Tm_DArray_end(A) ((A)->end)
+#define Tm_DArray_last(A) ((A) ? (A)->contents[(A)->end - 1] : NULL)
+#define Tm_DArray_first(A) ((A) ? (A)->contents[0] : NULL)
+#define Tm_DArray_at(A, I) ((A) ? (A)->contents[(I)] : NULL)
+#define Tm_DArray_end(A) ((A) ? (A)->end : 0)
 #define Tm_DArray_count(A) Tm_DArray_end(A)
-#define Tm_DArray_max(A) ((A)->max)
+#define Tm_DArray_max(A) ((A) ? (A)->max : 0)
 
-#define DEFAULT_EXPAND_RATE 300
+#define DEFAULT_EXPAND_RATE 10
 
 void Tm_DArray_set(Tm_DArray *array, int i, void *el);
 

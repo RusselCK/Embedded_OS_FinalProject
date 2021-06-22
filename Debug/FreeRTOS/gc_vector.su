@@ -1,3 +1,3 @@
-gc_vector.c:11:6:gc_vector_push	32	static
-gc_vector.c:20:6:gc_vector_pop	24	static
-gc_vector.c:25:6:gc_vector_clear	24	static
+gc_vector.c:11:5:gc_vector_push	56	static,ignoring_inline_asm
+gc_vector.c:23:6:gc_vector_pop	24	static
+gc_vector.c:28:6:gc_vector_clear	24	static

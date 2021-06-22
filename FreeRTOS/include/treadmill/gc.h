@@ -56,6 +56,9 @@ TmObjectHeader* Tm_allocate(TmHeap *heap);
 void Tm_scan(TmHeap *heap);
 void Tm_flip(TmHeap *heap);
 
+void make_ecru(TmHeap *heap, TmCell *self);
+void make_grey(TmHeap *heap, TmCell *self);
+
 void TmHeap_print(TmHeap *heap);
 void TmHeap_print_all(TmHeap *heap);
 double TmHeap_size(TmHeap *heap);

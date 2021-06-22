@@ -9,8 +9,8 @@ test_rootset(TmStateHeader *state_h)
 {
   Tm_DArray *rootset = Tm_DArray_create(sizeof(TmObjectHeader*), 10);
   State *state = (State*)state_h;
-  for(int i=0; i<Tm_DArray_count(state->registers);i++) {
-    Tm_DArray_push(rootset, Tm_DArray_at(state->registers, i));
+  for(int i=0; i<Tm_DArray_count(state->rootset);i++) {
+    Tm_DArray_push(rootset, state->rootset->contents[i]);
   }
 
   return rootset;
@@ -21,7 +21,8 @@ test_scan_pointers(TmHeap *heap, TmObjectHeader *object, TmCallbackFn callback)
 {
   Object *self = (Object*)object;
   for(int i=0; i < Tm_DArray_count(self->children); i++) {
-    TmObjectHeader *o = (TmObjectHeader*)Tm_DArray_at(self->children, i);
+//    TmObjectHeader *o = (TmObjectHeader*)Tm_DArray_at(self->children, i);
+	TmObjectHeader *o = (TmObjectHeader*)(self->children->contents[i]);
     callback(heap, o);
   }
 }
@@ -37,7 +38,7 @@ State_new()
 {
   State *state = calloc(1, sizeof(State));
   state->gc.rootset_fn = test_rootset;
-  state->registers = Tm_DArray_create(sizeof(Object*), 10);
+  state->rootset = Tm_DArray_create(sizeof(Object*), 10);
   return state;
 }
 

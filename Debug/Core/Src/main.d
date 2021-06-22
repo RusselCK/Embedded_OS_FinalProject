@@ -37,6 +37,9 @@ Core/Src/main.o: ../Core/Src/main.c ../Core/Inc/main.h \
  C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/mpu_wrappers.h \
  C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/task.h \
  C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/list.h \
+ C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/semphr.h \
+ C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/queue.h \
+ C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/task.h \
  C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/minunit.h \
  C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/treadmill/_dbg.h \
  C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/treadmill/gc.h \
@@ -127,6 +130,12 @@ C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/inc
 C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/task.h:
 
 C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/list.h:
+
+C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/semphr.h:
+
+C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/queue.h:
+
+C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/task.h:
 
 C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/minunit.h:
 

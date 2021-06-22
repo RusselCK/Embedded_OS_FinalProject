@@ -9,6 +9,7 @@
 #define INC_PRINTF_H_
 #include <stdio.h>
 #include <string.h>
+
 #ifdef __GNUC__
 /* With GCC, small printf (option LD Linker->Libraries->Small printf
    set to 'Yes') calls __io_putchar() */

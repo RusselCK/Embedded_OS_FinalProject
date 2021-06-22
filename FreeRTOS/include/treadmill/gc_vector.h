@@ -11,7 +11,7 @@
 #include <treadmill/gc.h>
 #include <treadmill/object.h>
 
-void gc_vector_push(TmHeap *heap, Object *obj_vector, double number);
+int gc_vector_push(TmHeap *heap, Object *obj_vector, double number);
 void gc_vector_pop(Object *obj_vector);
 void gc_vector_clear(Object *obj_vector);
 

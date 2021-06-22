@@ -58,20 +58,22 @@ error:
 int gc_Hashmap_set(TmHeap *heap, Object *obj_map, char *key, char *data)
 {
   Hashmap *map = OBJ2HASH(obj_map);
-  Object *obj_key = String_new(heap, key);
-  Object *obj_data = String_new(heap, data);
 
   uint32_t hash = 0;
   Tm_DArray *bucket = Hashmap_find_bucket(map, key, 1, &hash);
   check(bucket, "Error can't create bucket.");
 
+  Object *obj_key = String_new(heap, key);
+  check(obj_key, "Error can't create obj_key.");
+  Object *obj_data = String_new(heap, data);
+  check(obj_data, "Error can't create obj_data.");
   HashmapNode *node = Hashmap_node_create(hash, obj_key, obj_data);
   check_mem(node);
 
   Tm_DArray_push(bucket, node);
 
+  Object_relate(obj_key, obj_data);
   Object_relate(obj_map, obj_key);
-  Object_relate(obj_map, obj_data);
 
   return 0;
 
@@ -125,10 +127,8 @@ void gc_Hashmap_delete(Object *obj_map, char *key)
 
   HashmapNode *node = Tm_DArray_get(bucket, i);
   Object *obj_key = node->key;
-  Object *obj_data = node->data;
 
   Object_unrelate(obj_map, obj_key);
-  Object_unrelate(obj_map, obj_data);
   free(node);
 
   HashmapNode *ending = Tm_DArray_pop(bucket);

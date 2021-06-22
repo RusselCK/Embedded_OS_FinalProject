@@ -28,6 +28,7 @@
 
 #include "FreeRTOS.h"
 #include "task.h"
+#include "semphr.h"
 #include "stm32f4xx_hal.h"
 
 #include "minunit.h"
@@ -55,13 +56,22 @@
 #define TOP     heap->top
 #define SCAN    heap->scan
 #define FREE    heap->free
+
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
 UART_HandleTypeDef huart4;
 
 /* USER CODE BEGIN PV */
+State *state;
+TmHeap *heap;
+SemaphoreHandle_t xSemaphore;
+//double heap_size, white_size, ecru_size, grey_size, black_size;
 
+TaskHandle_t gc_flip_handle = NULL;
+TaskHandle_t vector_task_handle = NULL;
+TaskHandle_t map_task_handle = NULL;
+TaskHandle_t running_task_handle = NULL;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -79,6 +89,7 @@ void  darray_test(void *pvParameters);
 void  gc_test(void *pvParameters);
 void  vector_test(void *pvParameters);
 void  hashmap_test(void *pvParameters);
+void  gc_flip(void *pvParameters);
 /* USER CODE END 0 */
 
 /**
@@ -111,12 +122,19 @@ int main(void)
   MX_GPIO_Init();
   MX_UART4_Init();
   /* USER CODE BEGIN 2 */
+  state = State_new();
+  heap = new_heap(state, 3, 4);
+  xSemaphore = xSemaphoreCreateMutex();
+
 //  xTaskCreate( printf_test, " printf_test", 500, NULL, 1, NULL);
 
 //  xTaskCreate( darray_test, " darray_test", 500, NULL, 1, NULL);
 //  xTaskCreate( gc_test, " gc_test", 500, NULL, 1, NULL);
-  xTaskCreate( vector_test, " vector_test", 500, NULL, 1, NULL);
-//  xTaskCreate( hashmap_test, " hashmap_test", 500, NULL, 1, NULL);
+  xTaskCreate( vector_test, " vector_test", 500, NULL, 1, &vector_task_handle);
+  xTaskCreate( hashmap_test, " hashmap_test", 500, NULL, 1, &map_task_handle);
+
+//  xTaskCreate( gc_flip, "gc_flip", 500, NULL, 2, &gc_flip_handle);
+
   vTaskStartScheduler();
   /* USER CODE END 2 */
 
@@ -257,18 +275,21 @@ void darray_test(void *pvParameters) {
 	}
 }
 
-void test_size (TmHeap* heap, double* heap_size, double* white_size, double* ecru_size, double* grey_size, double* black_size) {
+void test_size (TmHeap* heap, int* heap_size, int* white_size, int* ecru_size, int* grey_size, int* black_size) {
 
-	*heap_size = TmHeap_size(heap);
-	*white_size = TmHeap_white_size(heap);
-	*ecru_size = TmHeap_ecru_size(heap);
-	*grey_size = TmHeap_grey_size(heap);
-	*black_size = TmHeap_black_size(heap);
+	portDISABLE_INTERRUPTS();
+		*heap_size = TmHeap_size(heap);
+		*white_size = TmHeap_white_size(heap);
+		*ecru_size = TmHeap_ecru_size(heap);
+		*grey_size = TmHeap_grey_size(heap);
+		*black_size = TmHeap_black_size(heap);
+		fprintf(stderr, "heap = %d, white = %d, ecru = %d, grey = %d, black = %d\n\r", *heap_size, *white_size, *ecru_size, *grey_size , *black_size);
+	portENABLE_INTERRUPTS();
 }
 
 void  gc_test(void *pvParameters) {
 
-	double heap_size, white_size, ecru_size, grey_size, black_size;
+	int heap_size, white_size, ecru_size, grey_size, black_size;
 
 	while (1) {
 		// allocate
@@ -336,20 +357,36 @@ void count_iter(Object* obj) {
 //void relate_iter
 void  vector_test(void *pvParameters) {
 
-	double heap_size, white_size, ecru_size, grey_size, black_size;
+	int heap_size, white_size, ecru_size, grey_size, black_size;
+
+//	Object* vector = Vector_new(heap, 10);
+//	Object_make_root(vector, state);
+//	test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
 
 	while (1) {
-		State *state = State_new();
-		TmHeap *heap = new_heap(state, 3, 3);
+//		State *state = State_new();
+//		TmHeap *heap = new_heap(state, 3, 3);
 
+		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		debug("[vector] vector task");
 		Object* vector = Vector_new(heap, 10);
+		if (!vector) continue;
+		debug("[vector] create vector");
 		Object_make_root(vector, state);
 		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
 
-		gc_vector_push(heap, vector, 1);
-		gc_vector_push(heap, vector, 2);
-		gc_vector_push(heap, vector, 3);
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		if (gc_vector_push(heap, vector, 1) == 0) {
+			debug("[vector] push 1");
+			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		}
+		if (gc_vector_push(heap, vector, 2) == 0) {
+			debug("[vector] push 2");
+			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		}
+		if (gc_vector_push(heap, vector, 3) == 0){
+			debug("[vector] push 3");
+			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		}
 
 		count = 0;
 		Vector_each(vector, count_iter);
@@ -363,6 +400,7 @@ void  vector_test(void *pvParameters) {
 		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
 
 		gc_vector_clear(vector);
+		debug("[vector] clear");
 
 		count = 0;
 		Vector_each(vector, count_iter);
@@ -372,11 +410,13 @@ void  vector_test(void *pvParameters) {
 		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
 		Number_new(heap, 7);
 		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
-		Number_new(heap, 7);  // flip + scan + add rootset
+		Number_new(heap, 7);
 		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
 
-		TmHeap_destroy(heap);
-		State_destroy(state);
+		Object_delete_root(vector, state);
+		debug("[vector] delete vector");
+//		TmHeap_destroy(heap);
+//		State_destroy(state);
 	}
 }
 
@@ -384,49 +424,132 @@ void  vector_test(void *pvParameters) {
 void  hashmap_test(void *pvParameters) {
 
 
-	double heap_size, white_size, ecru_size, grey_size, black_size;
+	int heap_size, white_size, ecru_size, grey_size, black_size;
+
+//	Object* map = Map_new(heap);
+//	Object_make_root(map, state);
+//	test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
 
 	while (1) {
-		State *state = State_new();
-		TmHeap *heap = new_heap(state, 3, 4);
+//		State *state = State_new();
+//		TmHeap *heap = new_heap(state, 3, 4);
 
+		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		debug("[hashmap] map task");
 		Object* map = Map_new(heap);
+		if (!map) continue;
+		debug("[hashmap] create map");
 		Object_make_root(map, state);
 		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
 		// set and get
-		int rc = gc_Hashmap_set(heap, map, "test data 1", "THE OBJECT 1");
-		char* result = gc_Hashmap_get(map, "test data 1");
-		printf("hashmap get: %d\n\r", 333);
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		char* result;
+		if( gc_Hashmap_set(heap, map, "test data 1", "THE OBJECT 1") == 0) {
+			debug("[hashmap] map set 1");
+			result = gc_Hashmap_get(map, "test data 1");
+			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		}
+		if( gc_Hashmap_set(heap, map, "test data 2", "THE OBJECT 2") == 0) { // flip
+			debug("[hashmap] map set 2");
+			result = gc_Hashmap_get(map, "test data 2");
+			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		}
 
-		rc = gc_Hashmap_set(heap, map, "test data 2", "THE OBJECT 2");
-		result = gc_Hashmap_get(map, "test data 2");
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+//		gc_Hashmap_delete(map, "test data 1");
+//		result = gc_Hashmap_get(map, "test data 1");
+//		debug("[hashmap] map delete 1");
+//		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
 
-		gc_Hashmap_delete(map, "test data 1");
-		result = gc_Hashmap_get(map, "test data 1");
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
-
-		rc = gc_Hashmap_set(heap, map, "test data 3", "THE OBJECT 3");
-		result = gc_Hashmap_get(map, "test data 3");
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		if( gc_Hashmap_set(heap, map, "test data 3", "THE OBJECT 3") == 0) {
+			debug("[hashmap] map set 3");
+			result = gc_Hashmap_get(map, "test data 3");
+			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		}
+		if( gc_Hashmap_set(heap, map, "test data 4", "THE OBJECT 4") == 0) {
+			debug("[hashmap] map set 4");
+			result = gc_Hashmap_get(map, "test data 1");
+			result = gc_Hashmap_get(map, "test data 2");
+			result = gc_Hashmap_get(map, "test data 3");
+			result = gc_Hashmap_get(map, "test data 4");
+			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		}
 		// delete
 		gc_Hashmap_delete(map, "test data 1");
 		result = gc_Hashmap_get(map, "test data 1");
+		debug("[hashmap] map delete 1");
 		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
 
 		gc_Hashmap_delete(map, "test data 2");
 		result = gc_Hashmap_get(map, "test data 2");
+		debug("[hashmap] map delete 2");
 		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
 
 		gc_Hashmap_delete(map, "test data 3");
 		result = gc_Hashmap_get(map, "test data 3");
+		debug("[hashmap] map delete 3");
 		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
 
-		TmHeap_destroy(heap);
-		State_destroy(state);
+		gc_Hashmap_delete(map, "test data 4");
+		result = gc_Hashmap_get(map, "test data 4");
+		debug("[hashmap] map delete 4");
+		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+
+		Object_delete_root(map, state);
+		debug("[hashmap] delete map");
+//		TmHeap_destroy(heap);
+//		State_destroy(state);
 	}
 }
+
+//void  gc_flip(void *pvParameters) {
+//
+//	vTaskSuspend(NULL);
+//
+//	while(1) {
+//
+//		  vTaskSuspend(running_task_handle);
+//
+//		  debug("[GC] Flip");
+//		  // Scan all the grey cells before flipping.
+//		  while(SCAN != TOP) Tm_scan(heap);
+//
+//		  TmCell *ptr = NULL;
+//
+//		  // Make all the ecru into white and release them
+//		  ITERATE(BOTTOM, TOP, ptr) {
+//		    ptr->ecru = 0;
+//		    RELEASE(ptr->value);
+//		    ptr = ptr->next;
+//		  }
+//		  BOTTOM = TOP;
+//
+//		  TmHeap_grow(heap, heap->growth_rate);
+//
+//		  // Make all black into ecru.
+//		  ITERATE(SCAN, FREE, ptr) {
+//		    TmCell *next = ptr->next;
+//		    make_ecru(heap, ptr);
+//		    ptr = next;
+//		  }
+//
+//		  // Add all the rootset into the grey set.
+//		  Tm_DArray *rootset = heap->state->rootset_fn(heap->state);
+//
+//		  int count = Tm_DArray_count(rootset);
+//		  debug("[GC] Adding rootset (%i)", count);
+//		  for(int i=0; i < count; i++) {
+//		    TmObjectHeader *o = (TmObjectHeader*)(Tm_DArray_at(rootset, i));
+//		    TmCell *cell = o->cell;
+//		    make_grey(heap, cell);
+//		  }
+//
+//		  Tm_DArray_destroy(rootset);
+//
+//		  vTaskResume(running_task_handle);
+//		  vTaskSuspend(NULL);
+//	}
+//}
+
+
 /* USER CODE END 4 */
 
  /**

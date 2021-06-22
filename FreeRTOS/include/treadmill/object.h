@@ -14,6 +14,11 @@
 #include <treadmill/hashmap.h>
 #include "value_type.h"
 
+#include "FreeRTOS.h"
+#include "semphr.h"
+
+SemaphoreHandle_t xSemaphore;
+
 typedef struct object_s Object;
 
 struct object_s {
@@ -46,6 +51,7 @@ Object* Map_new(TmHeap *heap);
 void Object_relate(Object* parent, Object* child);
 void Object_unrelate(Object* parent, Object* child);
 void Object_make_root(Object *self, State *state);
+void Object_delete_root(Object *self, State *state);
 void Object_destroy(Object *self);
 
 

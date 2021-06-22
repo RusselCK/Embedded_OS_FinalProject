@@ -9,6 +9,6 @@
 void
 State_destroy(State *state)
 {
-  Tm_DArray_destroy(state->registers);
+  Tm_DArray_destroy(state->rootset);
   free(state);
 }

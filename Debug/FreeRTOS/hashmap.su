@@ -1,6 +1,6 @@
-darray.h:36:21:Tm_DArray_get	32	static
+darray.h:36:21:Tm_DArray_get	40	static,ignoring_inline_asm
 hashmap.c:12:5:reverse_compare	16	static
 hashmap.c:17:12:default_compare	16	static
 hashmap.c:22:17:default_hash	32	static
-hashmap.c:44:10:Hashmap_create	40	static
+hashmap.c:44:10:Hashmap_create	56	static,ignoring_inline_asm
 hashmap.c:65:6:Hashmap_destroy	32	static
