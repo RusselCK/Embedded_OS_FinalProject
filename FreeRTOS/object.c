@@ -7,7 +7,7 @@
 
 #include <treadmill/object.h>
 
-#include "string.h"
+#include <string.h>
 
 Object*
 Object_new(TmHeap *heap, ValueType type)
@@ -121,10 +121,16 @@ Object_destroy(Object *self)
   }
   Tm_DArray_destroy(self->children);
 
-  if (self && self->type == StringType) {
-	  if (self->data.as_str)
-		  free(self->data.as_str);
+  if (self) {
+	  if( self->type == StringType) {
+		  if (self->data.as_str)
+			  free(self->data.as_str);
+	  } else if ( self->type == MapType ) {
+		  Hashmap_destroy(OBJ2HASH(self));
+	  }
   }
+
+
   free(self);
 }
 

@@ -13,7 +13,7 @@ FreeRTOS/vector.o: ../FreeRTOS/vector.c \
  C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/mpu_wrappers.h \
  C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/treadmill/state.h \
  C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/treadmill/hashmap.h \
- ../Core/Inc/value_type.h \
+ C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/treadmill/value_type.h \
  C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/semphr.h \
  C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/queue.h \
  C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/task.h \
@@ -47,7 +47,7 @@ C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/inc
 
 C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/treadmill/hashmap.h:
 
-../Core/Inc/value_type.h:
+C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/treadmill/value_type.h:
 
 C:/Users/HSNL/STM32CubeIDE/workspace_1.6.1/Emvedded_OS_FinalProject/FreeRTOS/include/semphr.h:
 

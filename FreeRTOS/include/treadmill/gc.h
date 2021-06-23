@@ -2,7 +2,21 @@
 #define _treadmill_gc_h
 
 #include <treadmill/darray.h>
-#include <treadmill/_dbg.h>
+#include "FreeRTOS.h"
+
+#define BOTTOM  heap->bottom
+#define TOP     heap->top
+#define SCAN    heap->scan
+#define FREE    heap->free
+#define RELEASE heap->release
+
+#define ITERATE(A, B, N) \
+  (N) = (A);             \
+  while((N) != (B))
+
+/*
+ * -(bottom)- ECRU -(top)- GREY -(scan)- BLACK -(free)- WHITE ...
+ */
 
 struct tm_cell_s;
 

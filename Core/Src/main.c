@@ -32,14 +32,19 @@
 #include "stm32f4xx_hal.h"
 
 #include "minunit.h"
-#include <treadmill/gc.h>
+
 #include <treadmill/darray.h>
-#include <treadmill/vector.h>
+
+#include <treadmill/gc.h>
 #include <treadmill/gc_test_setup.h>
 #include <treadmill/state.h>
 #include <treadmill/object.h>
-#include <treadmill/gc_hashmap.h>
+
+#include <treadmill/vector.h>
 #include <treadmill/gc_vector.h>
+
+#include <treadmill/gc_hashmap.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -52,10 +57,6 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-#define BOTTOM  heap->bottom
-#define TOP     heap->top
-#define SCAN    heap->scan
-#define FREE    heap->free
 
 /* USER CODE END PM */
 
@@ -66,12 +67,9 @@ UART_HandleTypeDef huart4;
 State *state;
 TmHeap *heap;
 SemaphoreHandle_t xSemaphore;
-//double heap_size, white_size, ecru_size, grey_size, black_size;
 
-TaskHandle_t gc_flip_handle = NULL;
 TaskHandle_t vector_task_handle = NULL;
 TaskHandle_t map_task_handle = NULL;
-TaskHandle_t running_task_handle = NULL;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -89,7 +87,7 @@ void  darray_test(void *pvParameters);
 void  gc_test(void *pvParameters);
 void  vector_test(void *pvParameters);
 void  hashmap_test(void *pvParameters);
-void  gc_flip(void *pvParameters);
+void  gc_flip_test(void *pvParameters);
 /* USER CODE END 0 */
 
 /**
@@ -122,18 +120,21 @@ int main(void)
   MX_GPIO_Init();
   MX_UART4_Init();
   /* USER CODE BEGIN 2 */
-  state = State_new();
-  heap = new_heap(state, 3, 4);
   xSemaphore = xSemaphoreCreateMutex();
 
 //  xTaskCreate( printf_test, " printf_test", 500, NULL, 1, NULL);
 
 //  xTaskCreate( darray_test, " darray_test", 500, NULL, 1, NULL);
 //  xTaskCreate( gc_test, " gc_test", 500, NULL, 1, NULL);
-  xTaskCreate( vector_test, " vector_test", 500, NULL, 1, &vector_task_handle);
-  xTaskCreate( hashmap_test, " hashmap_test", 500, NULL, 1, &map_task_handle);
+//  xTaskCreate( gc_flip_test, "gc_flip_test", 500, NULL, 1, NULL);
 
-//  xTaskCreate( gc_flip, "gc_flip", 500, NULL, 2, &gc_flip_handle);
+  state = State_new();
+  heap = new_heap(state, 3, 4);
+  debug("[TmHeap] New a TmHeap with size 4 and growth rate 4");
+  TmHeap_print(heap);
+//  xTaskCreate( vector_test, " vector_test", 500, NULL, 1, &vector_task_handle);
+//  xTaskCreate( vector_test, " vector_test_2", 500, NULL, 1,NULL);
+  xTaskCreate( hashmap_test, " hashmap_test", 500, NULL, 1, &map_task_handle);
 
   vTaskStartScheduler();
   /* USER CODE END 2 */
@@ -248,29 +249,74 @@ void printf_test(void *pvParameters){
 void darray_test(void *pvParameters) {
 
 	while(1) {
-		Tm_DArray *array = NULL;
-		int *val1 = NULL;
-		int *val2 = NULL;
 
-		// create test
-		array = Tm_DArray_create(sizeof(int), 100);
-		// new test
-		val1 = Tm_DArray_new(array);
-		val2 = Tm_DArray_new(array);
-		// set test
+		// create a 100 elements int DArray
+		Tm_DArray *array = Tm_DArray_create(sizeof(int), 100);
+		mu_assert(array != NULL, "DArray create failed.");
+		mu_assert(array->contents != NULL, "contents are wrong in DArray");
+		mu_assert(array->end == 0, "end isn't at the right spot");
+		mu_assert(array->element_size == sizeof(int), "element size is wrong.");
+		mu_assert(array->max == 100, "wrong max length on initial size");
+		debug("[DArray] Create a 100 elements int DArray.");
+		// new a int DArray element
+		int *val1 = Tm_DArray_new(array);
+		mu_assert(val1 != NULL, "failed to make a new element.");
+		debug("[DArray] New the first int DArray element.");
+		int *val2 = Tm_DArray_new(array);
+		mu_assert(val2 != NULL, "failed to make a new element.");
+		debug("[DArray] New the second int DArray element.");
+		// set
 		Tm_DArray_set(array, 0, val1);
+		debug("[DArray] Set first element in array[0].");
 		Tm_DArray_set(array, 1, val2);
-		// get test
+		debug("[DArray] Set second value in array[1].");
+		// get
 		void* get1 = Tm_DArray_get(array, 0);
+		mu_assert(Tm_DArray_get(array, 0) == val1, "Wrong first value.");
+		debug("[DArray] Get correct first value.");
 		void* get2 = Tm_DArray_get(array, 1);
-		// remove test
+		mu_assert(Tm_DArray_get(array, 1) == val2, "Wrong second value.");
+		debug("[DArray] Get correct second value.");
+		// remove
 		int *val_check = Tm_DArray_remove(array, 0);
+		mu_assert(val_check != NULL, "Should not get NULL.");
+		mu_assert(*val_check == *val1, "Should get the first value.");
+		mu_assert(Tm_DArray_get(array, 0) == NULL, "Should be gone.");
 		Tm_DArray_free(val_check);
+		debug("[DArray] Remove the first element.");
 		val_check = Tm_DArray_remove(array, 1);
+		mu_assert(val_check != NULL, "Should not get NULL.");
+		mu_assert(*val_check == *val2, "Should get the first value.");
+		mu_assert(Tm_DArray_get(array, 1) == NULL, "Should be gone.");
 		Tm_DArray_free(val_check);
+		debug("[DArray] Remove the second element.");
+		// expand
+		int old_max = array->max;
+		Tm_DArray_expand(array);
+		mu_assert((unsigned int)array->max == old_max + array->expand_rate, "Wrong size after expand.");
+		debug("[DArray] Expand the DArray. ");
+		//contract
+		Tm_DArray_contract(array);
+		mu_assert((unsigned int)array->max == array->expand_rate + 1, "Should stay at the expand_rate at least.");
 
+		Tm_DArray_contract(array);
+		mu_assert((unsigned int)array->max == array->expand_rate + 1, "Should stay at the expand_rate at least.");
+		// push & pop
+		for(int i = 0; i < 100; i++) {
+		  int *val = Tm_DArray_new(array);
+		  *val = i * 333;
+		  Tm_DArray_push(array, val);
+		}
+		mu_assert(array->max == 101, "Wrong max size.");
+		for(int i = 99; i >= 0; i--) {
+		  int *val = Tm_DArray_pop(array);
+		  mu_assert(val != NULL, "Shouldn't get a NULL.");
+		  mu_assert(*val == i * 333, "Wrong value.");
+		  Tm_DArray_free(val);
+		}
+   	    debug("[DArray] Push and Pop test success.");
 
-		// destroy test
+		// destroy
 		Tm_DArray_destroy(array);
 	}
 }
@@ -287,65 +333,186 @@ void test_size (TmHeap* heap, int* heap_size, int* white_size, int* ecru_size, i
 	portENABLE_INTERRUPTS();
 }
 
-void  gc_test(void *pvParameters) {
-
-	int heap_size, white_size, ecru_size, grey_size, black_size;
+void gc_flip_test(void *pvParameters) {
 
 	while (1) {
-		// allocate
-		/*
-		State *state = State_new();
-		TmHeap *heap = new_heap(state, 10, 10);
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		state = State_new();
+		heap = new_heap(state, 3, 3);
+		debug("[TmHeap] New a TmHeap with size 4 and growth rate 3");
+		TmHeap_print(heap);
 
-		Object *obj  = Object_new(heap);
-		TmCell *cell = obj->gc.cell;
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		Object_new(heap, ObjectType);
+		debug("[TmHeap] Allocate the first Object in TmHeap");
+		TmHeap_print(heap);
+
+		Object_new(heap, ObjectType);
+		debug("[TmHeap] Allocate the second Object in TmHeap");
+		TmHeap_print(heap);
+
+		Object_new(heap, ObjectType);
+		debug("[TmHeap] Allocate the third Object in TmHeap");
+		TmHeap_print(heap);
+
+		Object_new(heap, ObjectType); // this triggers a flip
+		debug("[TmHeap] Allocate the 4th Object in TmHeap");
+		debug("[TmHeap] TmHeap size grow up from 4 to 7 by a flip");
+		TmHeap_print(heap);
 
 		TmHeap_destroy(heap);
 		State_destroy(state);
+		debug("[TmHeap] Destroy the TmHeap\n");
+	}
+}
 
+
+void  gc_test(void *pvParameters) {
+
+//	int heap_size, white_size, ecru_size, grey_size, black_size;
+
+	while (1) {
+
+		// heap new
+		state = State_new();
+		heap = new_heap(state, 10, 10);
+		assert_heap_size(11);
+		assert_white_size(11);
+		assert_ecru_size(0);
+		assert_grey_size(0);
+		assert_black_size(0);
+		debug("[TmHeap] New a TmHeap with size 11 ");
+		TmHeap_print(heap);
+
+		TmHeap_destroy(heap);
+		State_destroy(state);
+		debug("[TmHeap] Destroy the TmHeap");
+		// heap grow
+		state = State_new();
+		heap = new_heap(state, 3, 10);
+		assert_heap_size(4);
+		debug("[TmHeap] New a TmHeap with size 4");
+		TmHeap_print(heap);
+
+		TmHeap_grow(heap, 2);
+		assert_heap_size(6);
+		assert_white_size(6);
+		assert_ecru_size(0);
+		assert_grey_size(0);
+		assert_black_size(0);
+		debug("[TmHeap] TmHeap size grow up from 4 to 6");
+		TmHeap_print(heap);
+
+		TmHeap_destroy(heap);
+		State_destroy(state);
+		debug("[TmHeap] Destroy the TmHeap\n");
+		// heap allocate
+		state = State_new();
+		heap = new_heap(state, 10, 10);
+		debug("[TmHeap] New a TmHeap with size 11 ");
+		TmHeap_print(heap);
+
+		Object *obj  = Object_new(heap, ObjectType);
+		TmCell *cell = obj->gc.cell;
+		mu_assert(cell == FREE->prev, "Cell should be right before the free pointer");
+		mu_assert(heap->allocs == 1, "Allocation didn't update the allocs count.");
+		assert_heap_size(11);
+     	assert_white_size(10);
+		assert_ecru_size(0);
+		assert_grey_size(0);
+		assert_black_size(1);
+		debug("[TmHeap] Allocate an Object in TmHeap");
+//		TmHeap_print_all(heap);
+		TmHeap_print(heap);
+
+		TmHeap_destroy(heap);
+		State_destroy(state);
+		debug("[TmHeap] Destroy the TmHeap\n");
 		// allocate and flip
 		state = State_new();
 		heap = new_heap(state, 3, 3);
+		debug("[TmHeap] New a TmHeap with size 4 and growth rate 3");
+		TmHeap_print(heap);
 
-		Object_new(heap);
-		Object_new(heap);
-		Object_new(heap);
-		Object_new(heap); // this triggers a flip
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		Object_new(heap, ObjectType);
+		debug("[TmHeap] Allocate the first Object in TmHeap");
+		TmHeap_print(heap);
+
+		Object_new(heap, ObjectType);
+		debug("[TmHeap] Allocate the second Object in TmHeap");
+		TmHeap_print(heap);
+
+		Object_new(heap, ObjectType);
+		debug("[TmHeap] Allocate the third Object in TmHeap");
+		TmHeap_print(heap);
+
+		Object_new(heap, ObjectType); // this triggers a flip
+		assert_heap_size(7);
+	    assert_white_size(3); // the newly grown region
+		assert_ecru_size(3);  // the three first allocated objects
+		assert_grey_size(0);
+		assert_black_size(1);
+		debug("[TmHeap] Allocate the 4th Object in TmHeap");
+		debug("[TmHeap] TmHeap size grow up from 4 to 7 by a flip");
+//		TmHeap_print_all(heap);
+		TmHeap_print(heap);
 
 		TmHeap_destroy(heap);
 		State_destroy(state);
-		*/
+		debug("[TmHeap] Destroy the TmHeap\n");
 		// allocate and flip twice
-		State *state = State_new();
-		TmHeap *heap = new_heap(state, 3, 3);
-
+		state = State_new();
+		heap = new_heap(state, 3, 3);
+		debug("[TmHeap] New a TmHeap with size 4 and growth rate 3");
+		TmHeap_print(heap);
 		/*
 		 * parent1 ->
 		 *   child11
 		 *   child12
 		 */
-		Object *parent1 = Number_new(heap, 12);
+		Object *parent1 = Object_new(heap, ObjectType);
+		debug("[TmHeap] Allocate an Object 'Parent1' in TmHeap");
 		Object_make_root(parent1, state);
-		Object *child11 = Number_new(heap, 34);
-		Object_relate(parent1, child11);
+		debug("[TmHeap]  Make 'Parent1' be a root");
+		TmHeap_print(heap);
 
-		Object *child12 = String_new(heap, "hello, world!");
+		Object *child11 = Object_new(heap, ObjectType);
+		debug("[TmHeap] Allocate an Object 'Child11' in TmHeap");
+		Object_relate(parent1, child11);
+		debug("[TmHeap] Let 'Child11' be a child of 'Parent1'");
+		TmHeap_print(heap);
+
+		Object *child12 = Object_new(heap, ObjectType);
+		debug("[TmHeap] Allocate an Object 'Child12' in TmHeap");
 		Object_relate(parent1, child12);
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
-		Number_new(heap, 32); // this triggers a flip
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
-		Number_new(heap, 33);
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
-		String_new(heap, "hi");  // this triggers a scan
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
-		String_new(heap, "bye"); // this triggers another flip
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		debug("[TmHeap] Let 'Child12' be a child of 'Parent1'");
+		TmHeap_print(heap);
+
+		Object_new(heap, ObjectType); // this triggers a flip
+		debug("[TmHeap] Allocate an Object in TmHeap");
+//		TmHeap_print_all(heap);
+		TmHeap_print(heap);
+
+		Object_new(heap, ObjectType);
+		debug("[TmHeap] Allocate an Object in TmHeap");
+		TmHeap_print(heap);
+
+		Object_new(heap, ObjectType);  // this triggers a scan
+		debug("[TmHeap] Allocate an Object in TmHeap");
+//		TmHeap_print_all(heap);
+		TmHeap_print(heap);
+
+		Object_new(heap, ObjectType); // this triggers another flip
+		assert_heap_size(10);
+		assert_white_size(3); // the newly grown region
+		assert_ecru_size(5);
+		assert_grey_size(1);
+		assert_black_size(1);
+		debug("[TmHeap] Allocate an Object in TmHeap");
+//		TmHeap_print_all(heap);
+		TmHeap_print(heap);
 
 		TmHeap_destroy(heap);
 		State_destroy(state);
+		debug("[TmHeap] Destroy the TmHeap\n");
 	}
 }
 
@@ -357,66 +524,81 @@ void count_iter(Object* obj) {
 //void relate_iter
 void  vector_test(void *pvParameters) {
 
-	int heap_size, white_size, ecru_size, grey_size, black_size;
-
-//	Object* vector = Vector_new(heap, 10);
-//	Object_make_root(vector, state);
-//	test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+//	state = State_new();
+//	heap = new_heap(state, 3, 4);
+//	debug("[TmHeap] New a TmHeap with size 4 and growth rate 4");
+//    TmHeap_print(heap);
 
 	while (1) {
-//		State *state = State_new();
-//		TmHeap *heap = new_heap(state, 3, 3);
-
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		printf("\r\n");
 		debug("[vector] vector task");
+		TmHeap_print(heap);
+
 		Object* vector = Vector_new(heap, 10);
 		if (!vector) continue;
-		debug("[vector] create vector");
+		mu_assert(vector->type == VectorType, "failed creating vector");
+		mu_assert(OBJ2ARY(vector)->max == 10, "failed assigning array to vector");
+		debug("[vector] create a vector with size 10");
 		Object_make_root(vector, state);
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		debug("[vector]  Make the vector be a root");
+		TmHeap_print(heap);
 
 		if (gc_vector_push(heap, vector, 1) == 0) {
-			debug("[vector] push 1");
-			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+			debug("[vector] push 1 in the vector");
+			TmHeap_print(heap);
 		}
 		if (gc_vector_push(heap, vector, 2) == 0) {
-			debug("[vector] push 2");
-			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+			debug("[vector] push 2 in the vector");
+			TmHeap_print(heap);
 		}
-		if (gc_vector_push(heap, vector, 3) == 0){
-			debug("[vector] push 3");
-			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		if (gc_vector_push(heap, vector, 3) == 0){ // flip
+			debug("[vector] push 3 in the vector");
+			TmHeap_print(heap);
 		}
 
 		count = 0;
 		Vector_each(vector, count_iter);
-		printf("count = %d\r\n", count);
+		printf("sum of vector = %d\r\n", count);
 
 		Number_new(heap, 7);
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		debug("[TmHeap] Allocate a Number Object in TmHeap");
+		TmHeap_print(heap);
+
 		Number_new(heap, 7); //scan
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
-		Number_new(heap, 7); // add rootset
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		debug("[TmHeap] Allocate a Number Object in TmHeap");
+		TmHeap_print(heap);
+
+		Number_new(heap, 7);
+		debug("[TmHeap] Allocate a Number Object in TmHeap");
+		TmHeap_print(heap);
 
 		gc_vector_clear(vector);
-		debug("[vector] clear");
+		debug("[vector] clear the vector");
+		TmHeap_print(heap);
 
 		count = 0;
 		Vector_each(vector, count_iter);
-		printf("count = %d\r\n", count);
+		printf("sum of vector = %d\r\n", count);
+
+		Number_new(heap, 7); // flip
+		debug("[TmHeap] Allocate a Number Object in TmHeap");
+		TmHeap_print(heap);
 
 		Number_new(heap, 7);
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		debug("[TmHeap] Allocate a Number Object in TmHeap");
+		TmHeap_print(heap);
+
 		Number_new(heap, 7);
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		debug("[TmHeap] Allocate a Number Object in TmHeap");
+		TmHeap_print(heap);
+
 		Number_new(heap, 7);
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		debug("[TmHeap] Allocate a Number Object in TmHeap");
+		TmHeap_print(heap);
 
 		Object_delete_root(vector, state);
-		debug("[vector] delete vector");
-//		TmHeap_destroy(heap);
-//		State_destroy(state);
+		debug("[vector] delete vector from rootset");
+
 	}
 }
 
@@ -424,132 +606,86 @@ void  vector_test(void *pvParameters) {
 void  hashmap_test(void *pvParameters) {
 
 
-	int heap_size, white_size, ecru_size, grey_size, black_size;
-
-//	Object* map = Map_new(heap);
-//	Object_make_root(map, state);
-//	test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+//	state = State_new();
+//	heap = new_heap(state, 3, 4);
+//	debug("[TmHeap] New a TmHeap with size 4 and growth rate 4");
+//    TmHeap_print(heap);
 
 	while (1) {
-//		State *state = State_new();
-//		TmHeap *heap = new_heap(state, 3, 4);
 
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		printf("\r\n");
 		debug("[hashmap] map task");
+		TmHeap_print(heap);
+
+		// map new
 		Object* map = Map_new(heap);
 		if (!map) continue;
-		debug("[hashmap] create map");
+		mu_assert(map->type == MapType, "failed creating map");
+		mu_assert(OBJ2HASH(map), "failed assigning hash to map");
+		debug("[hashmap] create a hashmap Object");
 		Object_make_root(map, state);
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		debug("[hashmap]  Make the hashmap be a root");
+		TmHeap_print(heap);
 		// set and get
 		char* result;
 		if( gc_Hashmap_set(heap, map, "test data 1", "THE OBJECT 1") == 0) {
 			debug("[hashmap] map set 1");
 			result = gc_Hashmap_get(map, "test data 1");
-			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+//			printf("The data of key 'test data 1' is '%s'\r\n", result);
+			TmHeap_print(heap);
 		}
 		if( gc_Hashmap_set(heap, map, "test data 2", "THE OBJECT 2") == 0) { // flip
-			debug("[hashmap] map set 2");
+			debug("[hashmap] map set 2");//stop
 			result = gc_Hashmap_get(map, "test data 2");
-			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+//			printf("The data of key 'test data 2' is '%s'\r\n", result);
+			TmHeap_print(heap);
 		}
-
-//		gc_Hashmap_delete(map, "test data 1");
-//		result = gc_Hashmap_get(map, "test data 1");
-//		debug("[hashmap] map delete 1");
-//		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
-
 		if( gc_Hashmap_set(heap, map, "test data 3", "THE OBJECT 3") == 0) {
 			debug("[hashmap] map set 3");
 			result = gc_Hashmap_get(map, "test data 3");
-			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+//			printf("The data of key 'test data 3' is '%s'\r\n", result);
+			TmHeap_print(heap);
 		}
 		if( gc_Hashmap_set(heap, map, "test data 4", "THE OBJECT 4") == 0) {
 			debug("[hashmap] map set 4");
-			result = gc_Hashmap_get(map, "test data 1");
-			result = gc_Hashmap_get(map, "test data 2");
-			result = gc_Hashmap_get(map, "test data 3");
 			result = gc_Hashmap_get(map, "test data 4");
-			test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+//			printf("The data of key 'test data 4' is '%s'\r\n", result);
+			TmHeap_print(heap);
 		}
 		// delete
 		gc_Hashmap_delete(map, "test data 1");
 		result = gc_Hashmap_get(map, "test data 1");
 		debug("[hashmap] map delete 1");
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		TmHeap_print(heap);
 
 		gc_Hashmap_delete(map, "test data 2");
 		result = gc_Hashmap_get(map, "test data 2");
 		debug("[hashmap] map delete 2");
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		TmHeap_print(heap);
 
 		gc_Hashmap_delete(map, "test data 3");
 		result = gc_Hashmap_get(map, "test data 3");
 		debug("[hashmap] map delete 3");
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		TmHeap_print(heap);
 
 		gc_Hashmap_delete(map, "test data 4");
 		result = gc_Hashmap_get(map, "test data 4");
 		debug("[hashmap] map delete 4");
-		test_size(heap, &heap_size, &white_size, &ecru_size, &grey_size, &black_size);
+		TmHeap_print(heap);
+
+		String_new(heap, "String A");
+		debug("[TmHeap] Allocate a String Object in TmHeap");
+		TmHeap_print(heap);
+
+		String_new(heap, "String B");
+		debug("[TmHeap] Allocate a String Object in TmHeap");
+		TmHeap_print(heap);
 
 		Object_delete_root(map, state);
-		debug("[hashmap] delete map");
-//		TmHeap_destroy(heap);
-//		State_destroy(state);
+		debug("[hashmap] delete map from rootset");
+
 	}
 }
-
-//void  gc_flip(void *pvParameters) {
-//
-//	vTaskSuspend(NULL);
-//
-//	while(1) {
-//
-//		  vTaskSuspend(running_task_handle);
-//
-//		  debug("[GC] Flip");
-//		  // Scan all the grey cells before flipping.
-//		  while(SCAN != TOP) Tm_scan(heap);
-//
-//		  TmCell *ptr = NULL;
-//
-//		  // Make all the ecru into white and release them
-//		  ITERATE(BOTTOM, TOP, ptr) {
-//		    ptr->ecru = 0;
-//		    RELEASE(ptr->value);
-//		    ptr = ptr->next;
-//		  }
-//		  BOTTOM = TOP;
-//
-//		  TmHeap_grow(heap, heap->growth_rate);
-//
-//		  // Make all black into ecru.
-//		  ITERATE(SCAN, FREE, ptr) {
-//		    TmCell *next = ptr->next;
-//		    make_ecru(heap, ptr);
-//		    ptr = next;
-//		  }
-//
-//		  // Add all the rootset into the grey set.
-//		  Tm_DArray *rootset = heap->state->rootset_fn(heap->state);
-//
-//		  int count = Tm_DArray_count(rootset);
-//		  debug("[GC] Adding rootset (%i)", count);
-//		  for(int i=0; i < count; i++) {
-//		    TmObjectHeader *o = (TmObjectHeader*)(Tm_DArray_at(rootset, i));
-//		    TmCell *cell = o->cell;
-//		    make_grey(heap, cell);
-//		  }
-//
-//		  Tm_DArray_destroy(rootset);
-//
-//		  vTaskResume(running_task_handle);
-//		  vTaskSuspend(NULL);
-//	}
-//}
-
-
 /* USER CODE END 4 */
 
  /**

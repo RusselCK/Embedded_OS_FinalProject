@@ -1,19 +1,6 @@
 #include <stdlib.h>
 #include <treadmill/gc.h>
-
-#define BOTTOM  heap->bottom
-#define TOP     heap->top
-#define SCAN    heap->scan
-#define FREE    heap->free
-#define RELEASE heap->release
-
-#define ITERATE(A, B, N) \
-  (N) = (A);             \
-  while((N) != (B))
-
-/*
- * -(bottom)- ECRU -(top)- GREY -(scan)- BLACK -(free)- WHITE ...
- */
+#include <treadmill/_dbg.h>
 
 static inline void
 unsnap(TmHeap *heap, TmCell* self) {
@@ -125,31 +112,36 @@ TmHeap_new(
 void
 TmHeap_print(TmHeap *heap)
 {
-  printf(
-    "[HEAP] (%i) (ECRU %i | GREY %i | BLACK %i | WHITE %i)\n",
+  portDISABLE_INTERRUPTS();
+  fprintf(stderr,
+    "[HEAP] (%i) (WHITE %i | ECRU %i | GREY %i | BLACK %i)\n\r",
     (int)TmHeap_size(heap),
+    (int)TmHeap_white_size(heap),
     (int)TmHeap_ecru_size(heap),
     (int)TmHeap_grey_size(heap),
-    (int)TmHeap_black_size(heap),
-    (int)TmHeap_white_size(heap)
+    (int)TmHeap_black_size(heap)
     );
+  portENABLE_INTERRUPTS();
 }
 
 void
 TmHeap_print_all(TmHeap *heap)
 {
+  portDISABLE_INTERRUPTS();
+
   TmHeap_print(heap);
 
   TmCell *ptr = TOP;
   do {
-    printf("* %p", ptr);
-    if(ptr == TOP) printf(" (TOP)");
-    if(ptr == BOTTOM) printf(" (BOTTOM)");
-    if(ptr == FREE) printf(" (FREE)");
-    if(ptr == SCAN) printf(" (SCAN)");
-    printf("\n");
+    fprintf(stderr,"* %p", ptr);
+    if(ptr == TOP) fprintf(stderr, " (TOP)");
+    if(ptr == BOTTOM) fprintf(stderr," (BOTTOM)");
+    if(ptr == FREE) fprintf(stderr, " (FREE)");
+    if(ptr == SCAN) fprintf(stderr, " (SCAN)");
+    fprintf(stderr, "\n\r");
   } while((ptr = ptr->next) && ptr != TOP);
-  printf("[END HEAP]\n");
+  fprintf(stderr, "[END HEAP]\n\r");
+  portENABLE_INTERRUPTS();
 }
 
 void
@@ -321,36 +313,54 @@ Tm_scan(TmHeap *heap)
   // black cell.
   SCAN = SCAN->prev;
   heap->scan_pointers(heap, SCAN->value, make_grey_if_ecru);
+  TmHeap_print(heap);
 }
 
 void
 Tm_flip(TmHeap *heap)
 {
   debug("[GC] Flip");
-  // Scan all the grey cells before flipping.
-  while(SCAN != TOP)
-	  Tm_scan(heap);
+  TmHeap_print_all(heap);
 
-  TmCell *ptr = NULL;
+  // Scan all the grey cells before flipping.
+  debug("[GC] Flip - 1. Scan all grey");
+  while(SCAN != TOP) {
+	  Tm_scan(heap);
+  }
+  TmHeap_print_all(heap);
 
   // Make all the ecru into white and release them
+  debug("[GC] Flip - 2. Make all ecru into white");
+  TmCell *ptr = NULL;
   ITERATE(BOTTOM, TOP, ptr) {
     ptr->ecru = 0;
     RELEASE(ptr->value);
     ptr = ptr->next;
   }
   BOTTOM = TOP;
+  TmHeap_print_all(heap);
 
-  TmHeap_grow(heap, heap->growth_rate);
+  /*
+   * If there are still no slots in the white list,
+   * grow the heap.
+   */
+  if(FREE->next == BOTTOM) {
+	  debug("[GC] Flip - 3. Grow the heap");
+	  TmHeap_grow(heap, heap->growth_rate);
+	  TmHeap_print_all(heap);
+  }
 
   // Make all black into ecru.
+  debug("[GC] Flip - 4. Make all black into ecru");
   ITERATE(SCAN, FREE, ptr) {
     TmCell *next = ptr->next;
     make_ecru(heap, ptr);
     ptr = next;
   }
+  TmHeap_print_all(heap);
 
   // Add all the rootset into the grey set.
+  debug("[GC] Flip - 5. Make all roots into grey");
   Tm_DArray *rootset = heap->state->rootset_fn(heap->state);
 
   int count = Tm_DArray_count(rootset);
@@ -362,6 +372,7 @@ Tm_flip(TmHeap *heap)
   }
 
   Tm_DArray_destroy(rootset);
+  TmHeap_print_all(heap);
 }
 
 TmObjectHeader*

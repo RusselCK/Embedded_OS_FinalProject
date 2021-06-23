@@ -12,7 +12,7 @@
 #include <treadmill/darray.h>
 #include <treadmill/state.h>
 #include <treadmill/hashmap.h>
-#include "value_type.h"
+#include <treadmill/value_type.h>
 
 #include "FreeRTOS.h"
 #include "semphr.h"

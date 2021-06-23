@@ -22,7 +22,7 @@ static int default_compare(void *a, void *b)
 static uint32_t default_hash(void *a)
 {
   size_t len = strlen((const char *)a);
-  char *key = (const char *)a;
+  char *key = (char *)a;
   uint32_t hash = 0;
   uint32_t i = 0;
 
